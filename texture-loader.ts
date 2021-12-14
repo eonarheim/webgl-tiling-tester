@@ -81,7 +81,7 @@
       if (tex) {
         if (forceUpdate) {
           gl.bindTexture(gl.TEXTURE_2D, tex);
-          const source = image;// TextureLoader.toPowerOfTwoImage(image);
+          const source = TextureLoader.toPowerOfTwoImage(image);
           gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
         }
         return tex;
@@ -89,7 +89,7 @@
   
       // No texture exists create a new one
       tex = gl.createTexture();
-      const source = image;// TextureLoader.toPowerOfTwoImage(image);
+      const source = TextureLoader.toPowerOfTwoImage(image);
   
       gl.bindTexture(gl.TEXTURE_2D, tex);
   

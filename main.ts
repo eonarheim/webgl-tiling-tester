@@ -2,7 +2,7 @@ import { Matrix } from "./matrix";
 import { Shader } from "./shader";
 import fragmentSrc from './fragment.glsl';
 import vertexSrc from './vertex.glsl';
-import { TextureLoader } from "./texture-loader";
+import { ensurePowerOfTwo, TextureLoader } from "./texture-loader";
 import { Tile } from "./tile";
 import tileImageSrc from './block.png';
 import { vec } from "./vector";
@@ -10,19 +10,30 @@ import { QuadIndexBuffer } from "./quad-index-buffer";
 import { VertexBuffer } from "./vertex-buffer";
 import { VertexLayout } from "./vertex-layout";
 
-const oldCanvas = document.getElementsByTagName('canvas');
-for (let old of oldCanvas) {
-    document.body.removeChild(old);
-}
+import * as broken from './broken';
+import * as solution1 from './solution1';
+import * as solution2 from './solution2';
+import { TransformStack } from "./transform-stack";
 
-const canvas = document.createElement('canvas');
-document.body.appendChild(canvas);
+let useUVBodge = true;
+let useUnecessaryScaling = true;
+let useTransformCamera = true;
+let useSharedTileEdge = false;
+
+
+const canvas = document.getElementById('game') as HTMLCanvasElement;
 const viewportSize = {
     width: 800,
     height: 600
 }
 canvas.width = viewportSize.width;
 canvas.height = viewportSize.height;
+canvas.style.imageRendering = 'pixelated';
+// Fall back to 'crisp-edges' if 'pixelated' is not supported
+// Currently for firefox https://developer.mozilla.org/en-US/docs/Web/CSS/image-rendering
+if (canvas.style.imageRendering === '') {
+    canvas.style.imageRendering = 'crisp-edges';
+}
 const gl = canvas.getContext('webgl', {
     antialias: false,
     powerPreference: 'high-performance'
@@ -31,24 +42,48 @@ const gl = canvas.getContext('webgl', {
 // hidpi scaling
 function applyHiDPIScaling() {
     if (window.devicePixelRatio > 1.0) {
-        const originalWidth = canvas.width;
-        const originalHeight = canvas.height;
-        canvas.width = originalWidth * window.devicePixelRatio;
-        canvas.height = originalHeight * window.devicePixelRatio;
+        canvas.width = viewportSize.width * window.devicePixelRatio;
+        canvas.height = viewportSize.height * window.devicePixelRatio;
 
-        canvas.style.width =  originalWidth + 'px';
-        canvas.style.height = originalHeight + 'px';
+        canvas.style.width =  viewportSize.width + 'px';
+        canvas.style.height = viewportSize.height + 'px';
     }
+    console.log('pixel ratio', window.devicePixelRatio);
 }
 applyHiDPIScaling();
+
+
+function listenForPixelRatioChange() {
+    const mediaQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+    mediaQuery.addEventListener('change', pixelRatioChangeHandler, {once: true}); // doesn't work in safari
+}
+
+function pixelRatioChangeHandler() {
+    listenForPixelRatioChange();
+    applyHiDPIScaling();
+}
+
+listenForPixelRatioChange();
 
 TextureLoader.registerContext(gl);
 
 // init webgl
+const tileWidthPixels = 64;
+const tilePOTWidth = ensurePowerOfTwo(tileWidthPixels);
+const tileHeightPixels = 48;
+const tilePOTHeight = ensurePowerOfTwo(tileHeightPixels);
+
+const transform = new TransformStack();
 
 // orthographic projection (with our world space resolution)
-const ortho = Matrix.ortho(0, viewportSize.width, viewportSize.height, 0, 400, -400);
-// gl vieport with the scaled resolution
+let ortho = Matrix.ortho(0, viewportSize.width, viewportSize.height, 0, 400, -400);
+if (useUnecessaryScaling) {
+    transform.current = Matrix.identity();
+    ortho = Matrix.ortho(0, canvas.width, canvas.height, 0, 400, -400);
+    transform.scale(window.devicePixelRatio, window.devicePixelRatio);
+}
+
+// gl vieport with the scaled resolution (draw buffer)
 gl.viewport(0, 0, canvas.width, canvas.height);
 
 // Disable depth test
@@ -94,15 +129,15 @@ staticVertexBuffer.fill((data, num, size) => {
         vertex += size;
 
         data[i + vertex + 0] = 0;
-        data[i + vertex + 1] = 1;
+        data[i + vertex + 1] = (tileHeightPixels - (useUVBodge ? 0.01 : 0))/ tilePOTHeight;
         vertex += size;
 
-        data[i + vertex + 0] = 1;
+        data[i + vertex + 0] = (tileWidthPixels  - (useUVBodge ? 0.01 : 0)) / tilePOTWidth;
         data[i + vertex + 1] = 0;
         vertex += size;
 
-        data[i + vertex + 0] = 1;
-        data[i + vertex + 1] = 1;
+        data[i + vertex + 0] = (tileWidthPixels - (useUVBodge ? 0.01 : 0)) / tilePOTWidth;
+        data[i + vertex + 1] = (tileHeightPixels - (useUVBodge ? 0.01 : 0)) / tilePOTHeight;
         vertex = 0;
     }
 });
@@ -111,7 +146,7 @@ staticVertexBuffer.upload();
 // quad index buffer
 const quads = new QuadIndexBuffer(gl, maxTiles);
 
-// build tiles
+// load image
 const image: HTMLImageElement = new Image();
 let texture: WebGLTexture;
 image.src = tileImageSrc;
@@ -119,66 +154,53 @@ image.decode().then(() => {
     texture = TextureLoader.load(image);
 });
 
-const tiles: Tile[] = [];
-const tileXs: number[] = [];
-const tileYs: number[] = [];
-const tileRows = 4;
-const tileColumns = 20;
 
-const tileWidthPixels = 64;
-const tileHeightPixels = 48;
 
-// Precoumpute all the x's & y's for the tile geometry
-// this keeps us from getting into trouble with floating point math 
-for (let x = 0; x < (tileColumns + 1); x++) {
-  tileXs[x] = x * tileWidthPixels;
-}
-for (let y = 0; y < (tileRows + 1); y++) {
-  tileYs[y] = y * tileHeightPixels;
-}
-
-// Create tile geometry that share's the same edges
-for (let x = 0; x < tileColumns; x++) {
-  for (let y = 0; y < tileRows; y++) {
-    const tile = new Tile({
-      left: tileXs[x],
-      right: tileXs[x + 1],
-      top: tileYs[y],
-      bottom: tileYs[y + 1]
-    });
-    tiles.push(tile);
-  }
+// build tiles
+let tiles: Tile[];
+if (useSharedTileEdge) {
+    tiles = solution2.generateTiles(4, 20, tileWidthPixels, tileHeightPixels);
+} else {
+    tiles = broken.generateTiles(4, 20, tileWidthPixels, tileHeightPixels);
 }
 
 const cameraPos = vec(0, 0);
-
+(window as any).cameraPos = cameraPos;
+cameraPos.y = 201.00000000000023; // seems to produce the artifact for me on a 1920x1080 screen
+cameraPos.x = 89.5196762084961;
 // update 
 function update(ms: number) {
     cameraPos.x += (10 * (ms/1000)); // 10 pixels per second to the right
+    // cameraPos.y += (.05 * (ms/1000));
 }
 
 // draw
 let vertIndex = 0;
 function drawTile(tile: Tile) {
     // Quad update
+    let topLeft = vec(tile.left, tile.top);
+    let bottomRight = vec(tile.right, tile.bottom);
+    topLeft = transform.current.multv(topLeft);
+    bottomRight = transform.current.multv(bottomRight);
+
     // (0, 0) - 0
     const vertices = def.buffer.bufferData;
-    vertices[vertIndex++] = tile.left;
-    vertices[vertIndex++] = tile.top;
-        
+    vertices[vertIndex++] = topLeft.x;
+    vertices[vertIndex++] = topLeft.y;
+
     // (0, 1) - 1
-    vertices[vertIndex++] = tile.left;
-    vertices[vertIndex++] = tile.bottom;
+    vertices[vertIndex++] = topLeft.x;
+    vertices[vertIndex++] = bottomRight.y;
 
 
     // (1, 0) - 2
-    vertices[vertIndex++] = tile.right;
-    vertices[vertIndex++] = tile.top;
+    vertices[vertIndex++] = bottomRight.x;
+    vertices[vertIndex++] = topLeft.y;
 
 
     // (1, 1) - 3
-    vertices[vertIndex++] = tile.right;
-    vertices[vertIndex++] = tile.bottom;
+    vertices[vertIndex++] = bottomRight.x;
+    vertices[vertIndex++] = bottomRight.y;
 }
 function draw() {
     // Clear
@@ -190,16 +212,28 @@ function draw() {
 
     gl.viewport(0, 0, canvas.width, canvas.height);
 
+    transform.save();
+    if (useTransformCamera) {
+        transform.translate(-cameraPos.x + viewportSize.width/2, -cameraPos.y + viewportSize.height/2);
+    }
+    // move tilemap to 100,300
+    transform.translate(100, 300);
     // Update the tile "dynamic" geometry
     for (const tile of tiles) {
         drawTile(tile);
     }
+    transform.restore();
+
     // Bind the shader
     shader.use();
 
     // Update camera uniform
-    shader.addUniformFloat2('u_camera', cameraPos.x - viewportSize.width/2, cameraPos.y - viewportSize.height/2)
-    
+    if (useTransformCamera) {
+        shader.addUniformFloat2('u_camera', 0, 0);
+    } else {
+        shader.addUniformFloat2('u_camera', cameraPos.x - viewportSize.width/2, cameraPos.y - viewportSize.height/2);
+    }
+
     // Bind textures uniform
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -217,9 +251,15 @@ function draw() {
     vertIndex = 0;
 }
 
-const mainloop = () => {
+let last = performance.now();
+const mainloop = (now: number) => {
+    let elapsed = now - last;
+    if (elapsed > 200) {
+        elapsed = 1;
+    }
     window.requestAnimationFrame(mainloop);
-    update(16);
+    update(elapsed);
     draw();
+    last = now;
 }
-mainloop();
+mainloop(last - 16);

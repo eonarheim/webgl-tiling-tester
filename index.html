@@ -5,8 +5,28 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WebGL Tiling Tester</title>
+    <style>
+        #game {
+            margin: auto;
+            display: block;
+        }
+    </style>
 </head>
 <body>
     <script type="module" src="./main.ts"></script> 
+    <p>
+        This little app demonstrates a few possible tilemap issues and remedies from 
+        <a href="https://erikonarheim.com/webgl-tile-map-seams">this blog post</a>.
+    </p>
+    <p>Rendering artifacts show up best on standard dpi screens and in chrome</p>
+    <select>
+        <option>Broken TileMap with seams due to floating point</option>
+        <option>Solution 1: "Nudge" pixels (useful for ad-hoc)</option>
+        <option>Solution 2: Tile edge sharing (best for tile maps)tion></option>
+    </select>
+    <br>
+    <div id="container" class="container">
+        <canvas id="game"></canvas>
+    </div>
 </body>
 </html>

@@ -1,3 +1,4 @@
+precision highp float;
 // World position of geometry
 attribute vec2 a_position;
 
