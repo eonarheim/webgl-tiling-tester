@@ -2,7 +2,7 @@
   "name": "webgl-tiling-tester",
   "version": "1.0.0",
   "description": "Example of tile map issues in webgl",
-  "main": "index.js",
+  "main": "index.html",
   "scripts": {
     "start": "parcel serve ./index.html",
     "build": "parcel build ./index.html --dist-dir ./dist --public-url /"
