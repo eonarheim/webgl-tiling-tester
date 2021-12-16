@@ -14,7 +14,7 @@ import * as broken from './broken';
 import * as solutionSharedEdge from './solution-shared-edge';
 import { TransformStack } from "./transform-stack";
 import { VertexMemoryDefinition } from "./vertex-definition";
-import { nudgeToScreenPixelFloor } from "./pixel-nudge";
+import { nudgeToScreenPixelCeil, nudgeToScreenPixelFloor } from "./pixel-nudge";
 
 // Flags
 let useUVBodge = false;
@@ -274,7 +274,7 @@ function drawTile(tile: Tile) {
 
     if (usePixelToScreenNudge) {
         topLeft = nudgeToScreenPixelFloor(transform.current, topLeft, resolution);
-        bottomRight = nudgeToScreenPixelFloor(transform.current, bottomRight, resolution);
+        bottomRight = nudgeToScreenPixelCeil(transform.current, bottomRight, resolution);
     }
 
     // (0, 0) - 0

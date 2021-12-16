@@ -72,12 +72,12 @@ export function nudgeToScreenPixelCeil(transform: Matrix, coord: Vector, resolut
     const screenSpacePosBodge = screenSpacePos.add(vec(0.5, 0.5));
 
     // Find the nearest screen pixel
-    const nearestScreenPixelFloor = vec(
+    const nearestScreenPixelCeil = vec(
         Math.ceil(screenSpacePosBodge.x),
         Math.ceil(screenSpacePosBodge.y));
     
     // Convert back to game resolution
-    const worldSpace = toWorldSpace(nearestScreenPixelFloor, resolution, screen);
+    const worldSpace = toWorldSpace(nearestScreenPixelCeil, resolution, screen);
 
     // Transform back to world coordinate
     return transform.multv(worldSpace);
