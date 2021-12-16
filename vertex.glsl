@@ -15,7 +15,7 @@ uniform vec2 u_camera;
 void main() {
 
    // Set the vertex position using the ortho transform matrix
-   gl_Position = u_matrix * vec4(a_position - u_camera, 0, 1.0);
+   gl_Position = u_matrix * vec4(a_position + u_camera, 0, 1.0);
 
    // Pass through the UV coord to the fragment shader
    v_texcoord = a_texcoord;

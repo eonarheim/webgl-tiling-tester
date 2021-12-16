@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -10,23 +11,76 @@
             margin: auto;
             display: block;
         }
+        body {
+            display: flex;
+        }
+        .controls {
+            width: 400px;
+            justify-self: start;
+        }
     </style>
 </head>
+
 <body>
-    <script type="module" src="./main.ts"></script> 
-    <p>
-        This little app demonstrates a few possible tilemap issues and remedies from 
-        <a href="https://erikonarheim.com/webgl-tile-map-seams">this blog post</a>.
-    </p>
-    <p>Rendering artifacts show up best on standard dpi screens and in chrome</p>
-    <select>
-        <option>Broken TileMap with seams due to floating point</option>
-        <option>Solution 1: "Nudge" pixels (useful for ad-hoc)</option>
-        <option>Solution 2: Tile edge sharing (best for tile maps)tion></option>
-    </select>
+    
+    <script type="module" src="./main.ts"></script>
+    <div class="controls">
+        <h1>WebGL TileMap Artifact Tester</h1>
+        <p>
+            This little app demonstrates a few possible tilemap issues and remedies from
+            <a href="https://erikonarheim.com/webgl-tile-map-seams">this blog post</a>.
+        </p>
+        <p>Rendering artifacts show up best on standard dpi screens 
+            <ul>
+                <li>chrome (zoom to 110%)</li>
+                <li>firefox (zoom to 150%)</li>
+            </ul>
+        </p>
+
+        <p>Apply browser zoom (ctrl +) or (ctrl scrollwheel) to "change" pixel ratio: <span
+                id="current-pixel-ratio"></span></p>
+        <button id="reset">Reset</button>
+        <br>
+
+        <label for="scroll-x">Scroll X</label>
+        <input type="checkbox" id="scroll-x" />
+        <br>
+
+        <label for="scroll-y">Scroll Y</label>
+        <input type="checkbox" id="scroll-y" />
+        <br>
+
+        <h3>Potential Problem Causers</h3>
+
+        <label for="truncate">Truncate fractional part of Geometry</label>
+        <input type="checkbox" id="truncate" />
+        <br>
+
+        <label for="unnecessary-geometry-scaling">Unnecessary Scaling/Transform</label>
+        <input type="checkbox" id="unnecessary-geometry-scaling" />
+        <br>
+
+        <h3>Potential Solutions</h3>
+
+        <label for="uv-bodge">UV 0.01 Bodge</label>
+        <input type="checkbox" id="uv-bodge" />
+        <br>
+
+        <label for="shared-tile-edge">Shared Tile Edge</label>
+        <input type="checkbox" id="shared-tile-edge" />
+        <br>
+
+        <label for="pixel-to-screen-nudge">Pixel to Screen Nudge</label>
+        <input type="checkbox" id="pixel-to-screen-nudge" />
+        <br>
+
+
+    </div>
+
     <br>
     <div id="container" class="container">
         <canvas id="game"></canvas>
     </div>
 </body>
+
 </html>

@@ -222,4 +222,41 @@ export class Matrix {
       return dest;
     }
   }
+
+  public getAffineInverse(): Matrix {
+    // See http://negativeprobability.blogspot.com/2011/11/affine-transformations-and-their.html
+    // See https://www.mathsisfun.com/algebra/matrix-inverse.html
+    // Since we are actually only doing 2D transformations we can use this hack
+    // We don't actually use the 3rd or 4th dimension
+
+    const det = this.getBasisDeterminant();
+    const inverseDet = 1 / det; // todo zero check
+    const a = this.data[0];
+    const b = this.data[4];
+    const c = this.data[1];
+    const d = this.data[5];
+
+    const m = Matrix.identity();
+    // inverts rotation and scale
+    m.data[0] = d * inverseDet;
+    m.data[1] = -c * inverseDet;
+    m.data[4] = -b * inverseDet;
+    m.data[5] = a * inverseDet;
+
+    const tx = this.data[12];
+    const ty = this.data[13];
+    // invert translation
+    // transform translation into the matrix basis created by rot/scale
+    m.data[12] = -(tx * m.data[0] + ty * m.data[4]);
+    m.data[13] = -(tx * m.data[1] + ty * m.data[5]);
+
+    return m;
+  }
+
+  /**
+   * Determinant of the upper left 2x2 matrix
+   */
+   public getBasisDeterminant() {
+    return this.data[0] * this.data[5] - this.data[1] * this.data[4];
+  }
 }
